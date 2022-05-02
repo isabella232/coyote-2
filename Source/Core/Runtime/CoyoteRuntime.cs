@@ -343,8 +343,8 @@ namespace Microsoft.Coyote.Runtime
             if (spawnTrace == "1")
             {
                 StackTrace stackTrace = new StackTrace();
-                Console.WriteLine($"--------------------<SPAWN> stackTrace: '{stackTrace}'.");
-                Console.WriteLine($"--------------------<SPAWN> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: {op.ParentTask}");
+                IO.Debug.WriteLine($"--------------------<SPAWN> stackTrace: '{stackTrace}'.");
+                IO.Debug.WriteLine($"--------------------<SPAWN> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: {op.ParentTask}");
             }
 
             var thread = new Thread(() =>
@@ -472,10 +472,10 @@ namespace Microsoft.Coyote.Runtime
             var contTrace = Environment.GetEnvironmentVariable("CONT_TRACE");
             if (contTrace == "1")
             {
-                // Console.WriteLine($"--------------------SCHEDULE-CALLBACK: Method: {callback.Method}, MethodInfo: {callback.GetMethodInfo()}");
+                // IO.Debug.WriteLine($"--------------------SCHEDULE-CALLBACK: Method: {callback.Method}, MethodInfo: {callback.GetMethodInfo()}");
                 StackTrace stackTrace = new StackTrace();
-                Console.WriteLine($"--------------------<CONTINUATION> stackTrace: '{stackTrace}'.");
-                Console.WriteLine($"--------------------<CONTINUATION> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: {op.ParentTask}");
+                IO.Debug.WriteLine($"--------------------<CONTINUATION> stackTrace: '{stackTrace}'.");
+                IO.Debug.WriteLine($"--------------------<CONTINUATION> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: {op.ParentTask}");
             }
 
             var thread = new Thread(() =>
@@ -567,11 +567,11 @@ namespace Microsoft.Coyote.Runtime
 
                 if (currentOperation.IsContinuationTask)
                 {
-                    Console.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    IO.Debug.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
                 }
                 else
                 {
-                    Console.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    IO.Debug.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
                 }
 
                 this.ScheduleNextOperation(currentOperation.Type);
@@ -614,8 +614,8 @@ namespace Microsoft.Coyote.Runtime
                 if (spawnTrace == "1")
                 {
                     StackTrace stackTrace = new StackTrace();
-                    Console.WriteLine($"--------------------<SPAWN> stackTrace: '{stackTrace}'.");
-                    Console.WriteLine($"--------------------<SPAWN> ID: {op.Id}, Name: {op.Name}, Spawner: {op.ParentTask}");
+                    IO.Debug.WriteLine($"--------------------<SPAWN> stackTrace: '{stackTrace}'.");
+                    IO.Debug.WriteLine($"--------------------<SPAWN> ID: {op.Id}, Name: {op.Name}, Spawner: {op.ParentTask}");
                 }
             }
             else
@@ -635,8 +635,8 @@ namespace Microsoft.Coyote.Runtime
                 if (delayTrace == "1")
                 {
                     StackTrace stackTrace = new StackTrace();
-                    Console.WriteLine($"--------------------<DELAY> stackTrace: '{stackTrace}'.");
-                    Console.WriteLine($"--------------------<DELAY> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: null");
+                    IO.Debug.WriteLine($"--------------------<DELAY> stackTrace: '{stackTrace}'.");
+                    IO.Debug.WriteLine($"--------------------<DELAY> op.Id: {op.Id}, op.Name: {op.Name}, op.ParentTask: null");
                 }
             }
 

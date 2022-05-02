@@ -368,7 +368,16 @@ namespace Microsoft.Coyote.SystematicTesting
             {
                 TelemetryClient.TrackMetricAsync(isReplaying ? "replay-time" : "test-time", this.Profiler.Results()).Wait();
             }
-        }
+
+            // TODO: add numSpawnTasks, numContinuationTasks, NumOfMoveNext (by spawn and continuation tasks) to the TestReport
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numSpawnTasks: {this.TestReport.NumSpawnTasks}: (Number of Spawn Tasks observed).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numContinuationTasks: {this.TestReport.NumContinuationTasks}: (Number of Continuation Tasks observed).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numDelayTasks: {this.TestReport.NumDelayTasks}: (Number of Delay Tasks observed).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numOfAsyncStateMachineStart: {this.TestReport.NumOfAsyncStateMachineStart}: (Number of times Start method is called by AsyncStateMachines).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numOfAsyncStateMachineStartMissed: {this.TestReport.NumOfAsyncStateMachineStartMissed}: (Number of Start method calls by AsyncStateMachines in which correct owner operation was not set).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numOfMoveNext: {this.TestReport.NumOfMoveNext}: (Number of times MoveNext method is called by AsyncStateMachines).");
+            Console.WriteLine($"--------------------COYOTE TESTING DONE: <TASKPCT_WORK_RUNTIME_LOG> numOfMoveNextMissed: {this.TestReport.NumOfMoveNextMissed}: (Number of times setting correct parent or priority on a MoveNext method call is missed).");
+            }
 
         /// <summary>
         /// Creates a new testing task.
