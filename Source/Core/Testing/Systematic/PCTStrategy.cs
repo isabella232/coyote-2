@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Coyote.IO;
 using Microsoft.Coyote.Runtime;
+using Microsoft.Coyote.Specifications;
 
 namespace Microsoft.Coyote.Testing.Systematic
 {
@@ -53,11 +54,18 @@ namespace Microsoft.Coyote.Testing.Systematic
         /// </summary>
         private readonly HashSet<int> PriorityChangePoints;
 
+        private int ActualNumberOfPrioritySwitches = 0;
+
+        private readonly HashSet<AsyncOperation> registeredOps;
+
+        private int ContextSwitchNumber;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PCTStrategy"/> class.
         /// </summary>
         internal PCTStrategy(int maxSteps, int maxPrioritySwitchPoints, IRandomValueGenerator generator)
         {
+            this.ActualNumberOfPrioritySwitches = 0;
             this.RandomValueGenerator = generator;
             this.MaxSteps = maxSteps;
             this.StepCount = 0;
@@ -65,6 +73,17 @@ namespace Microsoft.Coyote.Testing.Systematic
             this.MaxPrioritySwitchPoints = maxPrioritySwitchPoints;
             this.PrioritizedOperations = new List<AsyncOperation>();
             this.PriorityChangePoints = new HashSet<int>();
+            this.registeredOps = new HashSet<AsyncOperation>();
+            this.ContextSwitchNumber = 0;
+        }
+
+        internal void PrintTaskPCTStatsForIteration(uint iteration)
+        {
+            Console.WriteLine(string.Empty);
+            Console.WriteLine($"===========<IMP_TaskPCTStrategy> [PrintTaskPCTStatsForIteration] TASK-PCT STATS for ITERATION: {iteration}");
+            Console.WriteLine($"                  TOTAL ASYNC OPS (#PRIORITIES):: {this.PrioritizedOperations.Count}");
+            Console.WriteLine($"                  #PRIORITY_SWITCHES: {this.ActualNumberOfPrioritySwitches}");
+            this.DebugPrintOperationPriorityList();
         }
 
         /// <inheritdoc/>
@@ -76,6 +95,11 @@ namespace Microsoft.Coyote.Testing.Systematic
             // plus its also interesting to explore a schedule with no forced priority switch points.
             if (iteration > 0)
             {
+                this.ActualNumberOfPrioritySwitches = 0;
+
+                // FN_TODO: print the stat for the last iteration also
+                this.PrintTaskPCTStatsForIteration(iteration - 1);
+
                 this.ScheduleLength = Math.Max(this.ScheduleLength, this.StepCount);
                 this.StepCount = 0;
 
@@ -89,15 +113,152 @@ namespace Microsoft.Coyote.Testing.Systematic
                 }
 
                 this.DebugPrintPriorityChangePoints();
+                this.registeredOps.Clear();
+                this.ContextSwitchNumber = 0;
             }
 
             return true;
+        }
+
+        private void DebugPrintBeforeGetNextOperation(IEnumerable<AsyncOperation> opss)
+        {
+            this.ContextSwitchNumber += 1;
+            var ops = opss.ToList();
+            IO.Debug.WriteLine($"          ops.Count = {ops.Count}");
+            int countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op.Status}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op.Status}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op.Type}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op.Type}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            HashSet<AsyncOperation> newConcurrentOps = new HashSet<AsyncOperation>();
+            foreach (var op in ops)
+            {
+                if (!this.registeredOps.Contains(op))
+                {
+                    newConcurrentOps.Add(op);
+                    this.registeredOps.Add(op);
+                }
+            }
+
+            IO.Debug.WriteLine($"          # new operations added {newConcurrentOps.Count}");
+            // Specification.Assert((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
+
+            int cases = 0;
+
+            if (newConcurrentOps.Count == 0)
+            {
+                Console.WriteLine($"     <TaskSummaryLog> T-case 1.): No new task added.");
+                cases = 1;
+            }
+
+            foreach (var op in newConcurrentOps)
+            {
+                IO.Debug.WriteLine($"          newConcurrentOps: {op}, Spawner: {op.ParentTask}");
+                if (op.IsContinuationTask)
+                {
+                    if (op.ParentTask == null)
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 3.): Continuation task {op} (id = {op.Id}) is the first task to be created!");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 3.): Continuation task {op} (id = {op.Id}) created by {op.ParentTask} (id = {op.ParentTask.Id}).");
+                    }
+
+                    cases = 3;
+                }
+                else
+                {
+                    if (op.ParentTask == null)
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 2.): Spawn task {op} (id = {op.Id}) is the first task to be created!");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 2.): Spawn task {op} (id = {op.Id}) created by {op.ParentTask} (id = {op.ParentTask.Id}).");
+                    }
+
+                    cases = 2;
+                }
+            }
+
+            // Specification.Assert( (cases == 1) || (cases == 2) || (cases == 3),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((cases == 1) || (cases == 2) || (cases == 3)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
+
+            // IO.Debug.WriteLine(string.Empty);
+        }
+
+        private static void DebugPrintAfterGetNextOperation(AsyncOperation next)
+        {
+            IO.Debug.WriteLine($"          next = {next}");
+            Console.WriteLine($"     <TaskSummaryLog> Scheduled: {next}");
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
         }
 
         /// <inheritdoc/>
         internal override bool GetNextOperation(IEnumerable<AsyncOperation> ops, AsyncOperation current,
             bool isYielding, out AsyncOperation next)
         {
+            this.DebugPrintBeforeGetNextOperation(ops);
             next = null;
             var enabledOps = ops.Where(op => op.Status is AsyncOperationStatus.Enabled).ToList();
             if (enabledOps.Count is 0)
@@ -112,6 +273,7 @@ namespace Microsoft.Coyote.Testing.Systematic
             AsyncOperation highestEnabledOperation = this.GetEnabledOperationWithHighestPriority(enabledOps);
             next = enabledOps.First(op => op.Equals(highestEnabledOperation));
             this.StepCount++;
+            DebugPrintAfterGetNextOperation(next);
             return true;
         }
 
@@ -163,6 +325,7 @@ namespace Microsoft.Coyote.Testing.Systematic
 
             if (deprioritizedOperation != null)
             {
+                this.ActualNumberOfPrioritySwitches++;
                 // Deprioritize the operation by putting it in the end of the list.
                 this.PrioritizedOperations.Remove(deprioritizedOperation);
                 this.PrioritizedOperations.Add(deprioritizedOperation);

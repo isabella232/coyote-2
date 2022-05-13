@@ -1218,6 +1218,7 @@ namespace Microsoft.Coyote.Actors
                     },
                     op,
                     default,
+                    // this.Runtime.TaskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach | TaskCreationOptions.RunContinuationsAsynchronously,
                     this.Runtime.TaskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach,
                     this.Runtime.TaskFactory.Scheduler);
             }

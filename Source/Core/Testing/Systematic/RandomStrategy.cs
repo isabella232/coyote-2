@@ -40,9 +40,22 @@ namespace Microsoft.Coyote.Testing.Systematic
             this.ContextSwitchNumber = 0;
         }
 
+        internal void PrintTaskPCTStatsForIteration(uint iteration)
+        {
+            Console.WriteLine(string.Empty);
+            Console.WriteLine($"===========<IMP_RandomStrategy> [PrintTaskPCTStatsForIteration] RANDOM STATS for ITERATION: {iteration}");
+            Console.WriteLine($"                  TOTAL ASYNC OPS: {this.registeredOps.Count}");
+        }
+
         /// <inheritdoc/>
         internal override bool InitializeNextIteration(uint iteration)
         {
+            if (iteration > 0)
+            {
+                // FN_TODO: print the stat for the last iteration also
+                this.PrintTaskPCTStatsForIteration(iteration - 1);
+            }
+
             // The random strategy just needs to reset the number of scheduled steps during
             // the current iretation.
             this.StepCount = 0;
@@ -59,57 +72,57 @@ namespace Microsoft.Coyote.Testing.Systematic
         {
             this.ContextSwitchNumber += 1;
             var ops = opss.ToList();
-            Console.WriteLine($"          ops.Count = {ops.Count}");
+            IO.Debug.WriteLine($"          ops.Count = {ops.Count}");
             int countt = 0;
             foreach (var op in ops)
             {
                 if (countt == 0)
                 {
-                    Console.Write($"          {op}");
+                    IO.Debug.Write($"          {op}");
                 }
                 else
                 {
-                    Console.Write($", {op}");
+                    IO.Debug.Write($", {op}");
                 }
 
                 countt++;
             }
 
-            Console.WriteLine();
+            IO.Debug.WriteLine(string.Empty);
 
             countt = 0;
             foreach (var op in ops)
             {
                 if (countt == 0)
                 {
-                    Console.Write($"          {op.Status}");
+                    IO.Debug.Write($"          {op.Status}");
                 }
                 else
                 {
-                    Console.Write($", {op.Status}");
+                    IO.Debug.Write($", {op.Status}");
                 }
 
                 countt++;
             }
 
-            Console.WriteLine();
+            IO.Debug.WriteLine(string.Empty);
 
             countt = 0;
             foreach (var op in ops)
             {
                 if (countt == 0)
                 {
-                    Console.Write($"          {op.Type}");
+                    IO.Debug.Write($"          {op.Type}");
                 }
                 else
                 {
-                    Console.Write($", {op.Type}");
+                    IO.Debug.Write($", {op.Type}");
                 }
 
                 countt++;
             }
 
-            Console.WriteLine();
+            IO.Debug.WriteLine(string.Empty);
 
             HashSet<AsyncOperation> newConcurrentOps = new HashSet<AsyncOperation>();
             foreach (var op in ops)
@@ -121,9 +134,13 @@ namespace Microsoft.Coyote.Testing.Systematic
                 }
             }
 
-            Console.WriteLine($"          # new operations added {newConcurrentOps.Count}");
-            Specification.Assert((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1),
-                $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            IO.Debug.WriteLine($"          # new operations added {newConcurrentOps.Count}");
+            // Specification.Assert((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
 
             int cases = 0;
 
@@ -135,7 +152,7 @@ namespace Microsoft.Coyote.Testing.Systematic
 
             foreach (var op in newConcurrentOps)
             {
-                Console.WriteLine($"          newConcurrentOps: {op}, Spawner: {op.ParentTask}");
+                IO.Debug.WriteLine($"          newConcurrentOps: {op}, Spawner: {op.ParentTask}");
                 if (op.IsContinuationTask)
                 {
                     if (op.ParentTask == null)
@@ -164,21 +181,25 @@ namespace Microsoft.Coyote.Testing.Systematic
                 }
             }
 
-            Specification.Assert( (cases == 1) || (cases == 2) || (cases == 3),
-                $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            // Specification.Assert( (cases == 1) || (cases == 2) || (cases == 3),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((cases == 1) || (cases == 2) || (cases == 3)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
 
-            // Console.WriteLine();
+            // IO.Debug.WriteLine(string.Empty);
         }
 
         private static void DebugPrintAfterGetNextOperation(AsyncOperation next)
         {
-            Console.WriteLine($"          next = {next}");
+            IO.Debug.WriteLine($"          next = {next}");
             Console.WriteLine($"     <TaskSummaryLog> Scheduled: {next}");
-            // Console.WriteLine();
-            // Console.WriteLine();
-            // Console.WriteLine();
-            // Console.WriteLine();
-            // Console.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
+            // IO.Debug.WriteLine();
         }
 
         /// <inheritdoc/>

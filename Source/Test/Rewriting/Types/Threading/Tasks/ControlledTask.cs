@@ -46,6 +46,7 @@ namespace Microsoft.Coyote.Rewriting.Types
 
             var taskFactory = runtime.TaskFactory;
             return taskFactory.StartNew(action, cancellationToken,
+                // taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach | TaskCreationOptions.RunContinuationsAsynchronously,
                 taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach,
                 taskFactory.Scheduler);
         }
@@ -71,6 +72,7 @@ namespace Microsoft.Coyote.Rewriting.Types
 
             var taskFactory = runtime.TaskFactory;
             return taskFactory.StartNew(function, cancellationToken,
+                // taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach | TaskCreationOptions.RunContinuationsAsynchronously,
                 taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach,
                 taskFactory.Scheduler);
         }
@@ -97,6 +99,7 @@ namespace Microsoft.Coyote.Rewriting.Types
 
             var taskFactory = runtime.TaskFactory;
             return taskFactory.StartNew(function, cancellationToken,
+                // taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach | TaskCreationOptions.RunContinuationsAsynchronously,
                 taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach,
                 taskFactory.Scheduler).Unwrap();
         }
@@ -123,6 +126,7 @@ namespace Microsoft.Coyote.Rewriting.Types
 
             var taskFactory = runtime.TaskFactory;
             return taskFactory.StartNew(function, cancellationToken,
+                // taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach | TaskCreationOptions.RunContinuationsAsynchronously,
                 taskFactory.CreationOptions | TaskCreationOptions.DenyChildAttach,
                 taskFactory.Scheduler).Unwrap();
         }

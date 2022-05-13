@@ -183,12 +183,16 @@ namespace Microsoft.Coyote.Rewriting
                                 {
                                     if (method.FullName.Contains("MoveNext"))
                                     {
-                                        // Console.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.FullName: {method.FullName}, method: {method}");
-                                        // var instructionList = method.Body.Instructions.ToList();
-                                        // Console.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.Body(complere): ");
+                                        Debug.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.FullName: {method.FullName}, method: {method}");
+                                        Debug.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.FullName: {method.FullName}, method: {method}");
+                                        Debug.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.FullName: {method.FullName}, method: {method}");
+                                        Debug.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.FullName: {method.FullName}, method: {method}");
+                                        var instructionList = method.Body.Instructions.ToList();
+                                        Debug.WriteLine($"F_REWRITING_OUT MN BEFORE ==> method.Body(complere): ");
+                                        // TODO:fix: why below loop gives error while rewriting imageGallery (in net5)?
                                         // foreach (var instruction in instructionList)
                                         // {
-                                        //     Console.WriteLine($"          {instruction}");
+                                        //     Debug.WriteLine($"          {instruction}");
                                         // }
 
                                         var processor = method.Body.GetILProcessor();
@@ -205,6 +209,7 @@ namespace Microsoft.Coyote.Rewriting
                                         if (asyncTaskMethodBuilderFieldRef == null)
                                         {
                                             Console.WriteLine($"EYRYRYOR: in FN_REWRITING for type: {type}");
+                                            // Specification.Assert(false, $"EYRYRYOR: in FN_REWRITING for type: {type}");
                                         }
                                         else
                                         {
@@ -220,18 +225,19 @@ namespace Microsoft.Coyote.Rewriting
                                             processor.InsertBefore(method.Body.Instructions[0], processor.Create(OpCodes.Ldflda, asyncTaskMethodBuilderFieldRef));
                                             processor.InsertBefore(method.Body.Instructions[0], processor.Create(OpCodes.Ldarg_0));
 
-                                            // Console.WriteLine($"F_REWRITING_OUT MN AFTER ==> method.Body: {method.Body.ToString()}, asyncTaskMethodBuilderFieldRef: {asyncTaskMethodBuilderFieldRef}, onMoveNextMethod: {onMoveNextMethod}");
-                                            // instructionList = method.Body.Instructions.ToList();
-                                            // Console.WriteLine($"F_REWRITING_OUT MN AFTER ==> method.Body(complere): ");
+                                            Debug.WriteLine($"F_REWRITING_OUT MN AFTER ==> method.Body: {method.Body.ToString()}, asyncTaskMethodBuilderFieldRef: {asyncTaskMethodBuilderFieldRef}, onMoveNextMethod: {onMoveNextMethod}");
+                                            instructionList = method.Body.Instructions.ToList();
+                                            Debug.WriteLine($"F_REWRITING_OUT MN AFTER ==> method.Body(complere): ");
+                                            // TODO:fix: why below loop gives error while rewriting imageGallery?
                                             // foreach (var instruction in instructionList)
                                             // {
-                                            //     Console.WriteLine($"          {instruction}");
+                                            //     Debuge.WriteLine($"          {instruction}");
                                             // }
                                         }
                                     }
                                 }
 
-                                // Console.WriteLine($"F_REWRITING_OUT ==> type.FullName: {type.FullName}, type: {type}");
+                                Debug.WriteLine($"F_REWRITING_OUT ==> type.FullName: {type.FullName}, type: {type}");
                             }
                         }
                     }
