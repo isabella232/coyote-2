@@ -1,84 +1,164 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Collections.Generic;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Mvc;
-using ImageGallery.Client;
-using System.Net.Http;
-using ImageGallery.Models;
 using System;
+using System.Threading.Tasks;
+using ImageGallery.Logging;
+using ImageGallery.Models;
+using ImageGallery.Store.AzureStorage;
+using ImageGallery.Store.Cosmos;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace ImageGallery.Controllers
 {
-
-    public class AccountController : Controller
+    [ApiController]
+    public class AccountController : ControllerBase
     {
-        public static string ImageGalleryServiceUrl; 
-
-        public AccountController(IServiceProvider provider)
+        public static async Task InjectYieldsAtMethodStart()
         {
-            ImageGalleryServiceUrl = Startup.GetImageGalleryServiceUrl(provider);
+            string envYiledLoop = Environment.GetEnvironmentVariable("YIELDS_METHOD_START");
+            int envYiledLoopInt = 0;
+            if (envYiledLoop != null)
+            {
+#pragma warning disable CA1305 // Specify IFormatProvider
+                envYiledLoopInt = int.Parse(envYiledLoop);
+#pragma warning restore CA1305 // Specify IFormatProvider
+            }
+
+            for (int i = 0; i < envYiledLoopInt; i++)
+            {
+                await Task.Yield();
+            }
+        }
+
+        private readonly IDatabaseProvider DatabaseProvider;
+        private IContainerProvider AccountContainer;
+        private readonly IBlobContainerProvider StorageProvider;
+        private readonly ILogger Logger;
+
+        public AccountController(IDatabaseProvider databaseProvider, IBlobContainerProvider storageProvider, ILogger<ApplicationLogs> logger)
+        {
+            this.DatabaseProvider = databaseProvider;
+            this.StorageProvider = storageProvider;
+            this.Logger = logger;
+        }
+
+        private async Task<IContainerProvider> GetOrCreateContainer()
+        {
+            await InjectYieldsAtMethodStart();
+            if (this.AccountContainer == null)
+            {
+                this.AccountContainer = await this.DatabaseProvider.CreateContainerIfNotExistsAsync(Constants.AccountCollectionName, "/id");
+            }
+            return this.AccountContainer;
+        }
+
+        [HttpPut]
+        [Produces(typeof(ActionResult<Account>))]
+        [Route("api/account/create")]
+        public async Task<ActionResult<Account>> Create(Account account)
+        {
+            await InjectYieldsAtMethodStart();
+            this.Logger.LogInformation("Creating account with id '{0}' (name: '{1}', email: '{2}').",
+                account.Id, account.Name, account.Email);
+
+            // Check if the account exists in Cosmos DB.
+            var container = await GetOrCreateContainer();
+            var exists = await container.ExistsItemAsync<AccountEntity>(account.Id, account.Id);
+            if (exists)
+            {
+                return this.NotFound();
+            }
+
+            // BUG: calling create on the Cosmos DB container after checking if the account exists is racy
+            // and can, for example, fail due to another concurrent request. Typically someone could write
+            // a create or update request, that uses the `UpsertItemAsync` Cosmos DB API, but we dont use
+            // it here just for the purposes of this buggy sample service.
+
+            // The account does not exist, so create it in Cosmos DB.
+            var entity = await container.CreateItemAsync(new AccountEntity(account));
+            return this.Ok(entity.GetAccount());
+        }
+
+        [HttpPut]
+        [Produces(typeof(ActionResult<Account>))]
+        [Route("api/account/update")]
+        public async Task<ActionResult<Account>> Update(Account account)
+        {
+            await InjectYieldsAtMethodStart();
+            this.Logger.LogInformation("Updating account with id '{0}' (name: '{1}', email: '{2}').",
+                account.Id, account.Name, account.Email);
+
+            // Check if the account exists in Cosmos DB.
+            var container = await GetOrCreateContainer();
+            var exists = await container.ExistsItemAsync<AccountEntity>(account.Id, account.Id);
+            if (!exists)
+            {
+                return this.NotFound();
+            }
+
+            // BUG: calling update on the Cosmos DB container after checking if the account exists is racy
+            // and can, for example, fail due to another concurrent request. This throws an exception
+            // that the controller does not handle, and thus is reported as a 500. This can be fixed
+            // by properly handling ReplaceItemAsync and returning a `NotFound` instead.
+
+            // Update the account in Cosmos DB.
+            var entity = await container.ReplaceItemAsync(new AccountEntity(account));
+            return this.Ok(entity.GetAccount());
         }
 
         [HttpGet]
-        public IActionResult Login(string returnUrl = null)
+        [Produces(typeof(ActionResult<Account>))]
+        [Route("api/account/get/")]
+        public async Task<ActionResult<Account>> Get(string id)
         {
-            ViewData["ReturnUrl"] = returnUrl;
-            return View(new LoginViewModel());
-        }
+            await InjectYieldsAtMethodStart();
+            this.Logger.LogInformation("Getting account with id '{0}'.", id);
 
-        private async Task<bool> ValidateLoginAsync(string userName, string password)
-        {
-            var client = new ImageGalleryClient(new HttpClient(), ImageGalleryServiceUrl);
-            var account = await client.GetAccountAsync(userName);
-            if (account != null)
+            // Check if the account exists in Cosmos DB.
+            var container = await GetOrCreateContainer();
+            var exists = await container.ExistsItemAsync<AccountEntity>(id, id);
+            if (!exists)
             {
-                return account.Password == password;
+                return this.NotFound();
             }
-            return await client.CreateAccountAsync(new Account() { Id = userName, Name = userName, Password = password, Email = "test@yahoo.com" });
+
+            // BUG: calling get on the Cosmos DB container after checking if the account exists is racy
+            // and can, for example, fail due to another concurrent request that deleted the account.
+
+            // The account exists, so get it from Cosmos DB.
+            var entity = await container.ReadItemAsync<AccountEntity>(id, id);
+            return this.Ok(entity.GetAccount());
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Login(string userName, string password, string returnUrl = null)
+        [HttpDelete]
+        [Produces(typeof(ActionResult))]
+        [Route("api/account/delete/")]
+        public async Task<ActionResult> Delete(string id)
         {
-            ViewData["ReturnUrl"] = returnUrl;
+            await InjectYieldsAtMethodStart();
+            this.Logger.LogInformation("Deleting account with id '{0}'.", id);
 
-            // Normally Identity handles sign in, but you can do it directly
-            if (await ValidateLoginAsync(userName, password))
+            // Check if the account exists in Cosmos DB.
+            var container = await GetOrCreateContainer();
+            var exists = await container.ExistsItemAsync<AccountEntity>(id, id);
+            if (!exists)
             {
-                var claims = new List<Claim>
-                {
-                    new Claim("user", userName),
-                    new Claim("role", "Member")
-                };
-
-                await HttpContext.SignInAsync(new ClaimsPrincipal(new ClaimsIdentity(claims, "Cookies", "user", "role")));
-
-                if (Url.IsLocalUrl(returnUrl))
-                {
-                    return Redirect(returnUrl);
-                }
-                else
-                {
-                    return Redirect("/");
-                }
+                return this.NotFound();
             }
-            
-            return View(new LoginViewModel() { Username = userName, Message = "Login failed" });
-        }
 
-        public IActionResult AccessDenied(string returnUrl = null)
-        {
-            return View();
-        }
+            // BUG: calling the following APIs after checking if the account exists is racy and can
+            // fail due to another concurrent request.
 
-        public async Task<IActionResult> Logout()
-        {
-            await HttpContext.SignOutAsync();
-            return Redirect("/");
+            // The account exists, so delete it from Cosmos DB.
+            await container.DeleteItemAsync<AccountEntity>(id, id);
+
+            // Finally, if there is an image container for this account, then also delete it.
+            var containerName = Constants.GetContainerName(id);
+            await this.StorageProvider.DeleteContainerIfExistsAsync(containerName);
+
+            return this.Ok();
         }
     }
 }
