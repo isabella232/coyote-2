@@ -20,6 +20,10 @@ namespace Microsoft.Coyote.Rewriting.Types
     {
         internal static string RuntimeCompilerNamespace { get; } = typeof(RuntimeCompiler.AsyncTaskMethodBuilder).Namespace;
         internal static string SystemCompilerNamespace { get; } = typeof(SystemCompiler.AsyncTaskMethodBuilder).Namespace;
+        // internal static string SystemCompilerNamespace { get; } = typeof(SystemCompiler.AsyncValueTaskMethodBuilder).Namespace;
+        // internal static string SystemCompilerNamespace { get; } = typeof(SystemCompiler.AsyncValueTaskMethodBuilder).Namespace;
+        // internal static string SystemCompilerNamespace { get; } = typeof(SystemCompiler.AsyncVoidMethodBuilder).Namespace;
+        // internal static string SystemCompilerNamespace { get; } = typeof(SystemCompiler.AsyncVoidMethodBuilder).Namespace;
         internal static string SystemTasksNamespace { get; } = typeof(SystemTasks.Task).Namespace;
 
         internal static string TaskName { get; } = typeof(SystemTasks.Task).Name;
@@ -39,6 +43,10 @@ namespace Microsoft.Coyote.Rewriting.Types
         internal static string AsyncValueTaskMethodBuilderName { get; } = typeof(SystemCompiler.AsyncValueTaskMethodBuilder).Name;
         internal static string AsyncValueTaskMethodBuilder { get; } = typeof(SystemCompiler.AsyncValueTaskMethodBuilder).FullName;
         internal static string GenericAsyncValueTaskMethodBuilder { get; } = typeof(SystemCompiler.AsyncValueTaskMethodBuilder<>).FullName;
+
+        internal static string AsyncVoidMethodBuilderName { get; } = typeof(SystemCompiler.AsyncVoidMethodBuilder).Name;
+        internal static string AsyncVoidMethodBuilder { get; } = typeof(SystemCompiler.AsyncVoidMethodBuilder).FullName;
+        // internal static string GenericAsyncVoidMethodBuilder { get; } = typeof(SystemCompiler.AsyncVoidMethodBuilder<>).FullName;
 
         internal static string TaskAwaiterName { get; } = typeof(SystemCompiler.TaskAwaiter).Name;
         internal static string TaskAwaiter { get; } = typeof(SystemCompiler.TaskAwaiter).FullName;

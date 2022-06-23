@@ -11,6 +11,10 @@ namespace Microsoft.Coyote.Runtime
     /// </summary>
     internal class ControlledOperation : IEquatable<ControlledOperation>
     {
+        public ControlledOperation ParentTask = null;
+
+        public bool IsContinuationTask = false;
+
         /// <summary>
         /// The unique id of the operation.
         /// </summary>

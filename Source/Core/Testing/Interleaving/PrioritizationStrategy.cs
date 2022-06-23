@@ -43,6 +43,10 @@ namespace Microsoft.Coyote.Testing.Interleaving
         /// </summary>
         private readonly int MaxPriorityChanges;
 
+        private int ContextSwitchNumber = 0;
+
+        private HashSet<ControlledOperation> registeredOps;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PrioritizationStrategy"/> class.
         /// </summary>
@@ -54,6 +58,8 @@ namespace Microsoft.Coyote.Testing.Interleaving
             this.NumPriorityChangePoints = 0;
             this.MaxPriorityChangePoints = 0;
             this.MaxPriorityChanges = configuration.StrategyBound;
+            this.registeredOps = new HashSet<ControlledOperation>();
+            this.ContextSwitchNumber = 0;
         }
 
         /// <inheritdoc/>
@@ -81,6 +87,8 @@ namespace Microsoft.Coyote.Testing.Interleaving
                 }
 
                 this.DebugPrintPriorityChangePoints();
+                this.registeredOps = new HashSet<ControlledOperation>();
+                this.ContextSwitchNumber = 0;
             }
 
             this.NumPriorityChangePoints = 0;
@@ -88,10 +96,143 @@ namespace Microsoft.Coyote.Testing.Interleaving
             return true;
         }
 
+        // FOR DEBUGGING
+        private void DebugPrintBeforeGetNextOperation(IEnumerable<ControlledOperation> opss)
+        {
+            this.ContextSwitchNumber += 1;
+            var ops = opss.ToList();
+            IO.Debug.WriteLine($"          ops.Count = {ops.Count}");
+            int countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op.Status}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op.Status}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            countt = 0;
+            foreach (var op in ops)
+            {
+                if (countt == 0)
+                {
+                    IO.Debug.Write($"          {op.GetType()}");
+                }
+                else
+                {
+                    IO.Debug.Write($", {op.GetType()}");
+                }
+
+                countt++;
+            }
+
+            IO.Debug.WriteLine(string.Empty);
+
+            HashSet<ControlledOperation> newConcurrentOps = new HashSet<ControlledOperation>();
+            foreach (var op in ops)
+            {
+                if (!this.registeredOps.Contains(op))
+                {
+                    newConcurrentOps.Add(op);
+                    this.registeredOps.Add(op);
+                }
+            }
+
+            IO.Debug.WriteLine($"          # new operations added {newConcurrentOps.Count}");
+            // Specification.Assert((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((newConcurrentOps.Count <= 1) || (newConcurrentOps.Count == 2 && this.ContextSwitchNumber == 1)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
+
+            int cases = 0;
+
+            // FOR TASKS_EXECUTION_VISUALIZATION_GRAPHS WORK
+            if (newConcurrentOps.Count == 0)
+            {
+                Console.WriteLine($"     <TaskSummaryLog> T-case 1.): No new task added.");
+                cases = 1;
+            }
+
+            foreach (var op in newConcurrentOps)
+            {
+                IO.Debug.WriteLine($"          newConcurrentOps: {op}, Spawner: {op.ParentTask}");
+                if (op.IsContinuationTask)
+                {
+                    if (op.ParentTask == null)
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 3.): Continuation task {op} (id = {op.Id}) is the first task to be created!");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 3.): Continuation task {op} (id = {op.Id}) created by {op.ParentTask} (id = {op.ParentTask.Id}).");
+                    }
+
+                    cases = 3;
+                }
+                else
+                {
+                    if (op.ParentTask == null)
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 2.): Spawn task {op} (id = {op.Id}) is the first task to be created!");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 2.): Spawn task {op} (id = {op.Id}) created by {op.ParentTask} (id = {op.ParentTask.Id}).");
+                    }
+
+                    cases = 2;
+                }
+            }
+
+            // Specification.Assert( (cases == 1) || (cases == 2) || (cases == 3),
+            //     $"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            if (!((cases == 1) || (cases == 2) || (cases == 3)))
+            {
+                Console.WriteLine($"     <TaskSummaryLog-ERROR> At most one new operation must be added across context switch.");
+            }
+
+            // IO.Debug.WriteLine(string.Empty);
+        }
+
+        // FOR DEBUGGING
+        private static void DebugPrintAfterGetNextOperation(ControlledOperation next)
+        {
+            IO.Debug.WriteLine($"          next = {next}");
+            Console.WriteLine($"     <TaskSummaryLog> Scheduled: {next}");
+        }
+
         /// <inheritdoc/>
         internal override bool GetNextOperation(IEnumerable<ControlledOperation> ops, ControlledOperation current,
             bool isYielding, out ControlledOperation next)
         {
+            this.DebugPrintBeforeGetNextOperation(ops);
             // Set the priority of any new operation groups.
             this.SetNewOperationGroupPriorities(ops, current);
 
@@ -115,6 +256,7 @@ namespace Microsoft.Coyote.Testing.Interleaving
 
             int idx = this.RandomValueGenerator.Next(ops.Count());
             next = ops.ElementAt(idx);
+            DebugPrintAfterGetNextOperation(next);
             this.StepCount++;
             return true;
         }

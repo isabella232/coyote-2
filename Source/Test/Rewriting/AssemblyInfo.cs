@@ -7,8 +7,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Coyote.IO;
+using Microsoft.Coyote.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
+
+using SystemCompiler = System.Runtime.CompilerServices;
 
 namespace Microsoft.Coyote.Rewriting
 {
@@ -140,6 +144,8 @@ namespace Microsoft.Coyote.Rewriting
             return SortAssemblies(assemblies);
         }
 
+        private readonly HashSet<TypeDefinition> IAsyncStateMachineTypesSet = new HashSet<TypeDefinition>();
+
         /// <summary>
         /// Invokes the specified analysis or transformation pass on the assembly.
         /// </summary>
@@ -153,6 +159,106 @@ namespace Microsoft.Coyote.Rewriting
                 foreach (var type in module.GetTypes())
                 {
                     Debug.WriteLine($"......... Type: {type.FullName}");
+
+                    // Finding whether type is an object of class IAsyncStateMachine.
+                    bool isAsyncStateMachineType = type.Interfaces.Any(i => i.InterfaceType.FullName == typeof(SystemCompiler.IAsyncStateMachine).FullName);
+                    if (isAsyncStateMachineType)
+                    {
+                        // Making sure that this IAsyncStateMachine class is not already instrumented.
+                        if (!this.IAsyncStateMachineTypesSet.Contains(type))
+                        {
+                            this.IAsyncStateMachineTypesSet.Add(type);
+
+                            // Iterating over all methods of this IAsyncStateMachine class.
+                            Collection<MethodDefinition> methods = type.Methods;
+                            foreach (MethodDefinition method in methods)
+                            {
+                                // Instrumenting the MoveNext method of this IAsyncStateMachine class.
+                                if (method.FullName.Contains("MoveNext"))
+                                {
+                                    var instructionList = method.Body.Instructions.ToList();
+                                    var processor = method.Body.GetILProcessor();
+
+                                    // Finding the AsyncTaskMethodBuilder field reference.
+                                    FieldReference asyncTaskMethodBuilderFieldRef = null;
+                                    string builderType = "AsyncTaskMethodBuilder";
+                                    foreach (FieldReference field in type.Fields)
+                                    {
+                                        if (field.FieldType.FullName.Contains("AsyncTaskMethodBuilder"))
+                                        {
+                                            asyncTaskMethodBuilderFieldRef = field;
+                                            break;
+                                        }
+                                        else if (field.FieldType.FullName.Contains("AsyncValueTaskMethodBuilder"))
+                                        {
+                                            asyncTaskMethodBuilderFieldRef = field;
+                                            builderType = "AsyncValueTaskMethodBuilder";
+                                            break;
+                                        }
+                                        else if (field.FieldType.FullName.Contains("AsyncVoidMethodBuilder"))
+                                        {
+                                            asyncTaskMethodBuilderFieldRef = field;
+                                            builderType = "AsyncVoidMethodBuilder";
+                                            break;
+                                        }
+                                    }
+
+                                    if (asyncTaskMethodBuilderFieldRef == null)
+                                    {
+                                        // TODO: Fix this isses/error of non-existence of AsyncTaskMethodBuilder field reference in this IAsyncStateMachine class.
+                                        // Specification.Assert(false, $"EYRYRYOR: in FN_REWRITING for type: {type}");
+                                        Console.WriteLine($"EYRYRYOR: in FN_REWRITING for type: {type}");
+                                    }
+                                    else
+                                    {
+                                        string envRewriteSuccess = Environment.GetEnvironmentVariable("REWRITE_SUCCESS_LOG");
+                                        bool envRewriteSuccessBool = false;
+                                        if (envRewriteSuccess != null)
+                                        {
+                                            envRewriteSuccessBool = bool.Parse(envRewriteSuccess);
+                                        }
+
+                                        if (envRewriteSuccessBool)
+                                        {
+                                            Console.WriteLine($"SUCCESS: in FN_REWRITING for type: {type}");
+                                        }
+
+                                        asyncTaskMethodBuilderFieldRef = asyncTaskMethodBuilderFieldRef.Resolve();
+                                        asyncTaskMethodBuilderFieldRef = method.Module.ImportReference(asyncTaskMethodBuilderFieldRef);
+
+                                        // Inserting call to the OnMoveNext method of AsyncTaskMethodBuilder field at the befining of the MoveNext method of this IAsyncStateMachine class.
+                                        TypeDefinition asyncTaskMethodBuilderType = null;
+                                        MethodReference onMoveNextMethod = null;
+                                        if (builderType == "AsyncTaskMethodBuilder")
+                                        {
+                                            asyncTaskMethodBuilderType = method.Module.ImportReference(typeof(AsyncTaskMethodBuilder)).Resolve();
+                                            onMoveNextMethod = asyncTaskMethodBuilderType.Methods.FirstOrDefault(m => m.Name is nameof(AsyncTaskMethodBuilder.OnMoveNext));
+                                            onMoveNextMethod = method.Module.ImportReference(onMoveNextMethod);
+                                        }
+                                        else if (builderType == "AsyncValueTaskMethodBuilder")
+                                        {
+                                            asyncTaskMethodBuilderType = method.Module.ImportReference(typeof(AsyncValueTaskMethodBuilder)).Resolve();
+                                            onMoveNextMethod = asyncTaskMethodBuilderType.Methods.FirstOrDefault(m => m.Name is nameof(AsyncValueTaskMethodBuilder.OnMoveNext));
+                                            onMoveNextMethod = method.Module.ImportReference(onMoveNextMethod);
+                                        }
+                                        else
+                                        {
+                                            asyncTaskMethodBuilderType = method.Module.ImportReference(typeof(AsyncVoidMethodBuilder)).Resolve();
+                                            onMoveNextMethod = asyncTaskMethodBuilderType.Methods.FirstOrDefault(m => m.Name is nameof(AsyncVoidMethodBuilder.OnMoveNext));
+                                            onMoveNextMethod = method.Module.ImportReference(onMoveNextMethod);
+                                        }
+
+                                        processor.InsertBefore(method.Body.Instructions[0], processor.Create(OpCodes.Call, onMoveNextMethod));
+                                        processor.InsertBefore(method.Body.Instructions[0], processor.Create(OpCodes.Ldflda, asyncTaskMethodBuilderFieldRef));
+                                        processor.InsertBefore(method.Body.Instructions[0], processor.Create(OpCodes.Ldarg_0));
+
+                                        instructionList = method.Body.Instructions.ToList();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     pass.VisitType(type);
                     foreach (var field in type.Fields.ToArray())
                     {

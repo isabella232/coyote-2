@@ -55,6 +55,11 @@ namespace Microsoft.Coyote.Runtime
         private static readonly ThreadLocal<ControlledOperation> ExecutingOperation =
             new ThreadLocal<ControlledOperation>(false);
 
+        public static ControlledOperation GiveExecutingOperation()
+        {
+            return ExecutingOperation.Value;
+        }
+
         /// <summary>
         /// The runtime executing the current operation.
         /// </summary>
@@ -325,6 +330,8 @@ namespace Microsoft.Coyote.Runtime
             this.Assert(testMethod != null, "Unable to execute a null test method.");
 
             ControlledOperation op = this.CreateControlledOperation();
+            op.ParentTask = op;
+            op.IsContinuationTask = false;
             var thread = new Thread(() =>
             {
                 try
@@ -445,6 +452,8 @@ namespace Microsoft.Coyote.Runtime
 
             // Check if an existing controlled operation is stored in the state of the task.
             ControlledOperation op = task.AsyncState as ControlledOperation ?? this.CreateControlledOperation();
+            op.ParentTask = ExecutingOperation.Value;
+            op.IsContinuationTask = false;
             var thread = new Thread(() =>
             {
                 try
@@ -501,6 +510,8 @@ namespace Microsoft.Coyote.Runtime
             }
 
             ControlledOperation op = this.CreateControlledOperation();
+            op.ParentTask = ExecutingOperation.Value;
+            op.IsContinuationTask = true;
             var thread = new Thread(() =>
             {
                 try
@@ -588,6 +599,69 @@ namespace Microsoft.Coyote.Runtime
 
             return Task.Delay(TimeSpan.FromMilliseconds(
                 this.GetNondeterministicDelay(current, (int)this.Configuration.TimeoutDelay)));
+        }
+
+        // FN_TODO: we should execute this method only for prioritization strategy.
+        internal void SetParentOnMoveNext(ControlledOperation parent)
+        {
+            if (this.SchedulingPolicy is SchedulingPolicy.Interleaving)
+            {
+                // try catch block to catch ThreadInterruptedException.
+                try
+                {
+                    ControlledOperation currentOperation = this.ScheduledOperation;
+                    if (currentOperation == null)
+                    {
+                        currentOperation = ExecutingOperation.Value;
+                        if (currentOperation == null)
+                        {
+                            return;
+                        }
+                    }
+
+                    // If parent of currentOperation is already correct then we need not do a scheduling step.
+                    if (currentOperation.ParentTask == parent)
+                    {
+                        Console.WriteLine($"===========<F_IMP_CoyoteRuntime-Different> [SetParentOnMoveNext] parent of continuation task: {currentOperation} was already correct = {currentOperation.ParentTask}");
+                        // FOR TASKS_EXECUTION_VISUALIZATION_GRAPHS WORK
+                        if (currentOperation.IsContinuationTask)
+                        {
+                            Console.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                        }
+
+                        return;
+                    }
+
+                    if (parent == null)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        currentOperation.ParentTask = parent;
+                    }
+
+                    // FOR TASKS_EXECUTION_VISUALIZATION_GRAPHS WORK
+                    if (currentOperation.IsContinuationTask)
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    }
+                }
+                catch (ThreadInterruptedException)
+                {
+                    // Ignore the thread interruption.
+                    // FOR DEBUGGING
+                    // Console.WriteLine($"===========<F_CoyoteRuntime-POTENTIAL-ERROR> [SetParentOnMoveNext] ThreadInterruptedException caught here.");
+                }
+            }
         }
 
         /// <summary>
@@ -758,6 +832,11 @@ namespace Microsoft.Coyote.Runtime
             {
                 this.ControlledTasks.TryAdd(builderTask, null);
             }
+        }
+
+        internal void OnAsyncStateMachineStart(bool missed)
+        {
+            IO.Debug.WriteLine("missed: " + missed + "GetExecutingOperation: " + this.GetExecutingOperation());
         }
 
         /// <summary>
