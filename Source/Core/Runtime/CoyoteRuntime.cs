@@ -55,6 +55,15 @@ namespace Microsoft.Coyote.Runtime
         private static readonly ThreadLocal<ControlledOperation> ExecutingOperation =
             new ThreadLocal<ControlledOperation>(false);
 
+        /// <summary>
+        /// Provides access to the OperationGrouo of the ExecutingOperation.
+        /// </summary>
+        public string GiveExecutingOperationGroup()
+        {
+            IO.Debug.WriteLine("DUMMY: " + this.NumContinuationTasks);
+            return ExecutingOperation.Value.Group.ToString();
+        }
+
         public static ControlledOperation GiveExecutingOperation()
         {
             return ExecutingOperation.Value;
@@ -532,7 +541,8 @@ namespace Microsoft.Coyote.Runtime
             this.NumSpawnTasks++;
 
             // Setting some metadata for ControlledOperation op.
-            op.ParentTask = ExecutingOperation.Value; // FN_TODO: think whether ExecutingOperation or ScheduledOperation.
+            // op.ParentTask = ExecutingOperation.Value;
+            op.ParentTask = op; // FN_TODO: think whether ExecutingOperation or ScheduledOperation.
             op.LastMoveNextHandled = true;
             op.IsContinuationTask = false;
             op.IsOwnerSpawnOperation = true;
@@ -826,21 +836,21 @@ namespace Microsoft.Coyote.Runtime
                     }
 
                     // If parent of currentOperation is already correct then we need not do a scheduling step.
-                    if (currentOperation.ParentTask == parent)
-                    {
-                        Console.WriteLine($"===========<F_IMP_CoyoteRuntime-Different> [SetParentOnMoveNext] parent of spawn/delay/continuation task: {currentOperation} was already correct = {currentOperation.ParentTask}");
-                        // FOR TASKS_EXECUTION_VISUALIZATION_GRAPHS WORK
-                        if (currentOperation.IsContinuationTask)
-                        {
-                            Console.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
-                        }
+                    // if (currentOperation.ParentTask == parent)
+                    // {
+                    //     Console.WriteLine($"===========<F_IMP_CoyoteRuntime-Different> [SetParentOnMoveNext] parent of spawn/delay/continuation task: {currentOperation} was already correct = {currentOperation.ParentTask}");
+                    //     // FOR TASKS_EXECUTION_VISUALIZATION_GRAPHS WORK
+                    //     if (currentOperation.IsContinuationTask)
+                    //     {
+                    //         Console.WriteLine($"     <TaskSummaryLog> T-case 4.): Continuation task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    //     }
+                    //     else
+                    //     {
+                    //         Console.WriteLine($"     <TaskSummaryLog> T-case 5.): Spawn task {currentOperation} (id = {currentOperation.Id}) created by {currentOperation.ParentTask} (id = {currentOperation.ParentTask.Id}).");
+                    //     }
 
-                        return;
-                    }
+                    // return;
+                    // }
 
                     // FN_TODO: Think about the possibility of this case and how to handle this!
                     // FN_TODO: Log the number of MoveNext cakkbacks due to delay tasks in a separate variable.
